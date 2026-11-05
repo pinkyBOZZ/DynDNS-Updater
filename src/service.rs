@@ -1,7 +1,8 @@
 //! Optional Windows service: same sync loop, no window, runs without a logged-in user.
 use std::ffi::OsString;
-use std::fs::OpenOptions;
+use std::fs::{self, OpenOptions};
 use std::io::Write;
+use std::path::Path;
 use std::sync::mpsc;
 use std::time::Duration;
 
@@ -128,10 +129,37 @@ fn run_service() -> Result<(), windows_service::Error> {
     handle.set_service_status(status(ServiceState::Stopped, ServiceControlAccept::empty()))
 }
 
+const MAX_LOG: u64 = 1024 * 1024;
+
 fn log(msg: &str) {
-    let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
-    // shortcut: log grows forever and uses unix seconds, add rotation/local time if it gets used a lot
-    if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(store::service_dir().join("service.log")) {
-        let _ = writeln!(f, "{secs} {msg}");
+    let path = store::service_dir().join("service.log");
+    drop_if_over(&path, MAX_LOG);
+    let t = crate::local_time();
+    if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&path) {
+        let _ = writeln!(f, "{:04}-{:02}-{:02} {:02}:{:02} {msg}", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute);
+    }
+}
+
+/// Deletes the log once it passes `max` bytes; a fresh one starts with the next line.
+fn drop_if_over(path: &Path, max: u64) {
+    if fs::metadata(path).map(|m| m.len() > max).unwrap_or(false) {
+        let _ = fs::remove_file(path);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn log_dropped_over_limit() {
+        let path = std::env::temp_dir().join(format!("dyndns-log-test-{}.log", std::process::id()));
+        fs::write(&path, vec![b'x'; 10]).unwrap();
+        drop_if_over(&path, 10);
+        assert!(path.exists(), "at the limit stays");
+        fs::write(&path, vec![b'x'; 11]).unwrap();
+        drop_if_over(&path, 10);
+        assert!(!path.exists(), "over the limit is deleted");
+        drop_if_over(&path, 10); // missing file is fine
     }
 }

@@ -86,7 +86,7 @@ dyndns.exe --uninstall-service
 |---|---|---|
 | Your settings | `%APPDATA%\DynDNS\config.txt` | Password encrypted with DPAPI for your Windows user |
 | Service settings | `C:\ProgramData\DynDNS\service.txt` | Password encrypted with machine DPAPI; folder readable only by SYSTEM and Administrators |
-| Service log | `C:\ProgramData\DynDNS\service.log` | Same folder |
+| Service log | `C:\ProgramData\DynDNS\service.log` | Same folder; deleted and started fresh once it passes 1 MB |
 
 Saving in the window while the service is installed copies the new settings to the service, which asks for admin rights again.
 
@@ -112,8 +112,6 @@ UI text is marked with `@tr(...)` in `ui/app.slint` and translated in `lang/bs/L
 
 - One hostname per install.
 - The IP check returns IPv4 only.
-- The service log is never rotated.
-- The window freezes for a few seconds while the service is being installed or removed.
 
 ## Built with
 

@@ -65,8 +65,10 @@ fn gui() -> Result<(), Box<dyn std::error::Error>> {
             ui.set_halted(false);
             set_status(&ui, "saved", "");
             // The service keeps its own copy of the settings; refresh it.
-            if ui.get_service_installed() && !run_elevated("--install-service") {
-                set_status(&ui, "service-failed", "");
+            if ui.get_service_installed() {
+                elevate_in_background(&ui, "--install-service", |ui, ok| {
+                    set_status(ui, if ok { "saved" } else { "service-failed" }, "");
+                });
             }
         }
     });
@@ -91,14 +93,16 @@ fn gui() -> Result<(), Box<dyn std::error::Error>> {
                     return set_status(&ui, "error", &e);
                 }
             }
-            let ok = run_elevated(if on { "--install-service" } else { "--uninstall-service" });
-            ui.set_service_installed(service::is_installed());
-            let kind = match (ok, on) {
-                (false, _) => "service-failed",
-                (true, true) => "service-on",
-                (true, false) => "service-off",
-            };
-            set_status(&ui, kind, "");
+            let arg = if on { "--install-service" } else { "--uninstall-service" };
+            elevate_in_background(&ui, arg, move |ui, ok| {
+                ui.set_service_installed(service::is_installed());
+                let kind = match (ok, on) {
+                    (false, _) => "service-failed",
+                    (true, true) => "service-on",
+                    (true, false) => "service-off",
+                };
+                set_status(ui, kind, "");
+            });
         }
     });
 
@@ -221,6 +225,21 @@ fn refresh_tray(ui: &AppWindow) {
     });
 }
 
+/// Runs `run_elevated` on a worker thread so the window keeps responding while UAC and the
+/// service install run; the controls are locked until `done` gets the result.
+fn elevate_in_background(ui: &AppWindow, arg: &'static str, done: impl FnOnce(&AppWindow, bool) + Send + 'static) {
+    ui.set_busy(true);
+    set_status(ui, "checking", "");
+    let weak = ui.as_weak();
+    std::thread::spawn(move || {
+        let ok = run_elevated(arg);
+        let _ = weak.upgrade_in_event_loop(move |ui| {
+            ui.set_busy(false);
+            done(&ui, ok);
+        });
+    });
+}
+
 /// Runs this exe again with admin rights (UAC prompt) and waits. True if it succeeded.
 fn run_elevated(arg: &str) -> bool {
     use windows_sys::Win32::Foundation::CloseHandle;
@@ -267,10 +286,15 @@ fn message_box(msg: &str) {
     unsafe { MessageBoxW(std::ptr::null_mut(), text.as_ptr(), title.as_ptr(), MB_ICONERROR) };
 }
 
-fn now_hhmm() -> String {
+pub fn local_time() -> windows_sys::Win32::Foundation::SYSTEMTIME {
     // SAFETY: GetLocalTime only fills the struct.
     let mut t: windows_sys::Win32::Foundation::SYSTEMTIME = unsafe { std::mem::zeroed() };
     unsafe { windows_sys::Win32::System::SystemInformation::GetLocalTime(&mut t) };
+    t
+}
+
+fn now_hhmm() -> String {
+    let t = local_time();
     format!("{:02}:{:02}", t.wHour, t.wMinute)
 }
 
