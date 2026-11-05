@@ -6,6 +6,8 @@ A small Windows app, written in Rust, that keeps a DynDNS hostname pointed at yo
 
 The interface is available in English and Bosnian.
 
+![The DynDNS Updater window on first start, in dark mode](docs/screenshot.png)
+
 ## What it does
 
 Every 10 minutes the app asks `checkip.dyndns.com` for your public IP and resolves your hostname. If DNS already points at that IP, nothing is sent. If it doesn't, the app calls the DynDNS update API (`members.dyndns.org/v3/update`) with your account.
