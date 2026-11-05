@@ -1,0 +1,225 @@
+import { Button, LineEdit, ComboBox, CheckBox, VerticalBox, HorizontalBox, GridBox, Palette } from "std-widgets.slint";
+
+// Every colour comes from here. Neutrals follow the system light/dark palette.
+global Theme {
+    out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
+    out property <color> accent: #D97757;
+    out property <color> accent-hover: #CF6C4C;
+    out property <color> accent-pressed: #BD5F41;
+    out property <color> on-accent: #141413; // dark text: white on this orange fails contrast
+    out property <color> ok: dark ? #7BD39A : #2F7A4A;
+    out property <color> bad: dark ? #FF9A8F : #B3362C;
+    out property <brush> panel: Palette.alternate-background;
+    out property <brush> line: Palette.border;
+    out property <brush> text: Palette.foreground;
+    out property <brush> muted: Palette.foreground.with-alpha(0.65);
+    out property <brush> skeleton: Palette.foreground.with-alpha(0.12);
+}
+
+// Slint's own primary button follows the Windows accent colour, so the orange one is ours.
+component PrimaryButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> enabled: true;
+    callback clicked;
+
+    min-width: max(88px, label.preferred-width + 32px);
+    height: 32px;
+    border-radius: 4px;
+    background: !enabled ? Theme.accent.with-alpha(0.45) : touch.pressed ? Theme.accent-pressed : touch.has-hover ? Theme.accent-hover : Theme.accent;
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-action-default => { if root.enabled { root.clicked(); } }
+
+    label := Text {
+        text: root.text;
+        color: Theme.on-accent;
+        font-weight: 600;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+
+    focus := FocusScope {
+        enabled: root.enabled;
+        key-pressed(e) => {
+            if e.text == " " || e.text == "\n" {
+                root.clicked();
+                return accept;
+            }
+            return reject;
+        }
+    }
+
+    // Keyboard focus ring (only reachable with Tab, so it never shows on a mouse click).
+    Rectangle {
+        visible: focus.has-focus;
+        x: -3px;
+        y: -3px;
+        width: parent.width + 6px;
+        height: parent.height + 6px;
+        border-radius: 7px;
+        border-width: 2px;
+        border-color: Theme.text;
+    }
+}
+
+export component AppWindow inherits Window {
+    title: "DynDNS Updater";
+    icon: @image-url("../assets/icon.png");
+    min-width: 440px;
+    background: Palette.background;
+
+    in-out property <int> language;
+    in-out property <string> username;
+    in-out property <string> password;
+    in-out property <string> hostname;
+    in-out property <bool> service-installed;
+    in-out property <bool> halted;
+    in property <bool> busy;
+    in property <string> status-kind;
+    in property <string> status-detail;
+    in property <string> ip;
+    in property <string> checked-at;
+
+    callback save();
+    callback update-now();
+    callback language-changed(int);
+    callback service-toggled(bool);
+
+    public pure function status-text(kind: string, d: string) -> string {
+        if kind == "good" { return @tr("IP updated to {}", d); }
+        if kind == "nochg" { return @tr("IP already set to {}", d); }
+        if kind == "same" { return @tr("DNS is in sync"); }
+        if kind == "saved" { return @tr("Settings saved"); }
+        if kind == "checking" { return @tr("Checking..."); }
+        if kind == "missing" { return @tr("Fill in username, password and hostname"); }
+        if kind == "badauth" { return @tr("Wrong username or password"); }
+        if kind == "nohost" { return @tr("Hostname does not exist in this account"); }
+        if kind == "notfqdn" { return @tr("Hostname is not a valid domain name"); }
+        if kind == "abuse" { return @tr("Hostname is blocked for abuse"); }
+        if kind == "server" { return @tr("Server reply: {}", d); }
+        if kind == "service-on" { return @tr("Updates now run in the Windows service"); }
+        if kind == "service-off" { return @tr("Windows service removed"); }
+        if kind == "service-failed" { return @tr("Service change failed or was cancelled"); }
+        if kind == "error" { return @tr("Error: {}", d); }
+        return "";
+    }
+
+    property <bool> is-error: root.halted || root.status-kind == "error" || root.status-kind == "service-failed";
+    property <bool> is-ok: root.status-kind == "good" || root.status-kind == "nochg" || root.status-kind == "same";
+    property <bool> is-empty: root.hostname == "" && root.ip == "" && !root.busy && !root.is-error;
+
+    VerticalLayout {
+        // Status panel: the thing this app is for.
+        Rectangle {
+            background: root.is-error ? Theme.bad.with-alpha(0.10) : Theme.panel;
+            VerticalLayout {
+                padding: 20px;
+                spacing: 4px;
+
+                if root.is-empty: VerticalLayout {
+                    spacing: 4px;
+                    Text { text: @tr("Connect your hostname"); font-size: 18px; font-weight: 600; color: Theme.text; }
+                    Text { text: @tr("Enter your DynDNS account and hostname below, then click Save."); color: Theme.muted; wrap: word-wrap; }
+                }
+
+                if !root.is-empty: VerticalLayout {
+                    spacing: 4px;
+                    Text { text: root.hostname; color: Theme.muted; }
+
+                    if root.busy: Rectangle {
+                        height: 34px;
+                        width: 180px;
+                        border-radius: 4px;
+                        background: Theme.skeleton;
+                    }
+                    if !root.busy && !root.is-error && root.ip != "": Text {
+                        text: root.ip;
+                        font-size: 30px;
+                        font-weight: 600;
+                        color: Theme.text;
+                    }
+
+                    Text {
+                        text: root.status-text(root.status-kind, root.status-detail);
+                        font-size: root.is-error ? 16px : 14px;
+                        font-weight: root.is-error ? 600 : 400;
+                        color: root.is-error ? Theme.bad : root.is-ok ? Theme.ok : Theme.muted;
+                        wrap: word-wrap;
+                    }
+                    if root.halted: Text {
+                        text: @tr("Updates are paused. Fix the settings and click Save.");
+                        color: Theme.muted;
+                        wrap: word-wrap;
+                    }
+                    if !root.is-error && root.checked-at != "": Text {
+                        text: @tr("Checked at {}", root.checked-at);
+                        color: Theme.muted;
+                    }
+                }
+            }
+        }
+        Rectangle { height: 1px; background: Theme.line; }
+
+        VerticalBox {
+            padding: 20px;
+            spacing: 12px;
+
+            GridBox {
+                padding: 0;
+                spacing: 8px;
+                Row {
+                    Text { text: @tr("Provider"); vertical-alignment: center; }
+                    ComboBox { model: ["DynDNS"]; current-index: 0; }
+                }
+                Row {
+                    Text { text: @tr("Username"); vertical-alignment: center; }
+                    LineEdit { text <=> root.username; }
+                }
+                Row {
+                    Text { text: @tr("Password"); vertical-alignment: center; }
+                    LineEdit { text <=> root.password; input-type: InputType.password; }
+                }
+                Row {
+                    Text { text: @tr("Hostname"); vertical-alignment: center; }
+                    LineEdit { text <=> root.hostname; placeholder-text: "myhome.dyndns.org"; }
+                }
+                Row {
+                    Text { text: @tr("Language"); vertical-alignment: center; }
+                    ComboBox {
+                        model: ["English", "Bosanski"];
+                        current-index <=> root.language;
+                        selected => { root.language-changed(self.current-index); }
+                    }
+                }
+            }
+
+            CheckBox {
+                text: @tr("Run as Windows service (needs admin)");
+                checked <=> root.service-installed;
+                enabled: !root.busy;
+                toggled => { root.service-toggled(self.checked); }
+            }
+
+            HorizontalLayout {
+                spacing: 8px;
+                alignment: start;
+                PrimaryButton {
+                    text: @tr("Save");
+                    enabled: !root.busy;
+                    clicked => { root.save(); }
+                }
+                Button {
+                    text: @tr("Update now");
+                    enabled: !root.busy && !root.service-installed;
+                    clicked => { root.update-now(); }
+                }
+            }
+        }
+    }
+}

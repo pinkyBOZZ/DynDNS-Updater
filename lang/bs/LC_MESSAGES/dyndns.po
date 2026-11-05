@@ -1,0 +1,113 @@
+msgid ""
+msgstr ""
+"Language: bs\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+
+msgctxt "AppWindow"
+msgid "IP updated to {}"
+msgstr "IP ažuriran na {}"
+
+msgctxt "AppWindow"
+msgid "IP already set to {}"
+msgstr "IP je već postavljen na {}"
+
+msgctxt "AppWindow"
+msgid "DNS is in sync"
+msgstr "DNS je usklađen"
+
+msgctxt "AppWindow"
+msgid "Connect your hostname"
+msgstr "Poveži svoj hostname"
+
+msgctxt "AppWindow"
+msgid "Enter your DynDNS account and hostname below, then click Save."
+msgstr "Unesi DynDNS nalog i hostname ispod, pa klikni Sačuvaj."
+
+msgctxt "AppWindow"
+msgid "Updates are paused. Fix the settings and click Save."
+msgstr "Ažuriranja su pauzirana. Ispravi postavke i klikni Sačuvaj."
+
+msgctxt "AppWindow"
+msgid "Checked at {}"
+msgstr "Provjereno u {}"
+
+msgctxt "AppWindow"
+msgid "Language"
+msgstr "Jezik"
+
+msgctxt "AppWindow"
+msgid "Settings saved"
+msgstr "Postavke sačuvane"
+
+msgctxt "AppWindow"
+msgid "Checking..."
+msgstr "Provjeravam..."
+
+msgctxt "AppWindow"
+msgid "Fill in username, password and hostname"
+msgstr "Unesi korisničko ime, lozinku i hostname"
+
+msgctxt "AppWindow"
+msgid "Wrong username or password"
+msgstr "Pogrešno korisničko ime ili lozinka"
+
+msgctxt "AppWindow"
+msgid "Hostname does not exist in this account"
+msgstr "Hostname ne postoji na ovom nalogu"
+
+msgctxt "AppWindow"
+msgid "Hostname is not a valid domain name"
+msgstr "Hostname nije ispravno ime domene"
+
+msgctxt "AppWindow"
+msgid "Hostname is blocked for abuse"
+msgstr "Hostname je blokiran zbog zloupotrebe"
+
+msgctxt "AppWindow"
+msgid "Server reply: {}"
+msgstr "Odgovor servera: {}"
+
+msgctxt "AppWindow"
+msgid "Updates now run in the Windows service"
+msgstr "Ažuriranja sada radi Windows servis"
+
+msgctxt "AppWindow"
+msgid "Windows service removed"
+msgstr "Windows servis uklonjen"
+
+msgctxt "AppWindow"
+msgid "Service change failed or was cancelled"
+msgstr "Promjena servisa nije uspjela ili je otkazana"
+
+msgctxt "AppWindow"
+msgid "Error: {}"
+msgstr "Greška: {}"
+
+msgctxt "AppWindow"
+msgid "Provider"
+msgstr "Provajder"
+
+msgctxt "AppWindow"
+msgid "Username"
+msgstr "Korisničko ime"
+
+msgctxt "AppWindow"
+msgid "Password"
+msgstr "Lozinka"
+
+msgctxt "AppWindow"
+msgid "Hostname"
+msgstr "Hostname"
+
+msgctxt "AppWindow"
+msgid "Run as Windows service (needs admin)"
+msgstr "Pokreni kao Windows servis (traži admin prava)"
+
+msgctxt "AppWindow"
+msgid "Save"
+msgstr "Sačuvaj"
+
+msgctxt "AppWindow"
+msgid "Update now"
+msgstr "Ažuriraj sada"
