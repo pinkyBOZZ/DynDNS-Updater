@@ -1,12 +1,16 @@
 # DynDNS Updater
 
-![DynDNS Updater icon](assets/icon.png)
+<p align="center">
+  <img src="assets/icon.png" alt="DynDNS Updater icon" width="128">
+</p>
 
 A small Windows app, written in Rust, that keeps a DynDNS hostname pointed at your current public IP address. It has a window for the settings, sits in the tray while it runs, and can optionally install itself as a Windows service so updates keep going when nobody is logged in.
 
 The interface is available in English and Bosnian.
 
-![The DynDNS Updater window on first start, in dark mode](docs/screenshot.png)
+<p align="center">
+  <img src="docs/screenshot.png" alt="The DynDNS Updater window on first start, in dark mode">
+</p>
 
 ## What it does
 
@@ -98,7 +102,9 @@ UI text is marked with `@tr(...)` in `ui/app.slint` and translated in `lang/bs/L
 
 [Slint](https://slint.dev) for the UI, [ureq](https://github.com/algesten/ureq) for HTTP, [tray-icon](https://github.com/tauri-apps/tray-icon) for the tray, [windows-service](https://github.com/mullvad/windows-service-rs) and [windows-sys](https://github.com/microsoft/windows-rs) for the Windows parts.
 
-[![Made with Slint](https://raw.githubusercontent.com/slint-ui/slint/master/logo/MadeWithSlint-logo-whitebg.png)](https://slint.dev)
+<p align="center">
+  <a href="https://slint.dev"><img src="https://raw.githubusercontent.com/slint-ui/slint/master/logo/MadeWithSlint-logo-whitebg.png" alt="Made with Slint"></a>
+</p>
 
 ## License
 
