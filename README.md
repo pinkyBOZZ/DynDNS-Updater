@@ -87,6 +87,7 @@ dyndns.exe --uninstall-service
 | Your settings | `%APPDATA%\DynDNS\config.txt` | Password encrypted with DPAPI for your Windows user |
 | Service settings | `C:\ProgramData\DynDNS\service.txt` | Password encrypted with machine DPAPI; folder readable only by SYSTEM and Administrators |
 | Service log | `C:\ProgramData\DynDNS\service.log` | Same folder; deleted and started fresh once it passes 1 MB |
+| Service status | `C:\ProgramData\DynDNS\status.txt` | Last result only, no password; readable by all local users so the window can show it |
 
 Saving in the window while the service is installed copies the new settings to the service, which asks for admin rights again.
 

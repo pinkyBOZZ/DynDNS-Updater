@@ -69,6 +69,10 @@ msgid "Server reply: {}"
 msgstr "Odgovor servera: {}"
 
 msgctxt "AppWindow"
+msgid "Changing the Windows service..."
+msgstr "Mijenjam Windows servis..."
+
+msgctxt "AppWindow"
 msgid "Updates now run in the Windows service"
 msgstr "Ažuriranja sada radi Windows servis"
 

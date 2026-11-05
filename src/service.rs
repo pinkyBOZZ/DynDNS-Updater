@@ -130,13 +130,17 @@ fn run_service() -> Result<(), windows_service::Error> {
                 Ok(s) => {
                     let st = dyndns::sync(&s, false, &last_ip);
                     log(&format!("{} {}", st.kind, st.detail));
+                    write_status(&st);
                     if dyndns::accepted(&st) {
                         last_ip = st.detail.clone();
                     }
                     // Fatal replies stop updates until settings are saved again (service reinstalled).
                     halted = st.is_fatal();
                 }
-                Err(e) => log(&e),
+                Err(e) => {
+                    log(&e);
+                    write_status(&dyndns::Status { kind: "error".into(), detail: e });
+                }
             }
         }
         match stop_rx.recv_timeout(INTERVAL) {
@@ -145,6 +149,42 @@ fn run_service() -> Result<(), windows_service::Error> {
         }
     }
     handle.set_service_status(status(ServiceState::Stopped, ServiceControlAccept::empty()))
+}
+
+fn status_file() -> std::path::PathBuf {
+    store::service_dir().join("status.txt")
+}
+
+/// The window can't read the log (admins only), so the last result goes to a small file
+/// without secrets that every local user may read.
+fn write_status(st: &dyndns::Status) {
+    let path = status_file();
+    let new = !path.exists();
+    let t = crate::local_time();
+    let text = format!("kind={}\ndetail={}\ntime={:02}:{:02}\n", st.kind, st.detail, t.wHour, t.wMinute);
+    if fs::write(&path, text).is_ok() && new {
+        // Rewrites keep this ACL, so it is set once. S-1-5-32-545 = Users.
+        let _ = std::process::Command::new("icacls").arg(&path).args(["/grant", "*S-1-5-32-545:R"]).output();
+    }
+}
+
+/// Last result written by the service, with the time it was checked.
+pub fn read_status() -> Option<(dyndns::Status, String)> {
+    parse_status(&fs::read_to_string(status_file()).ok()?)
+}
+
+fn parse_status(text: &str) -> Option<(dyndns::Status, String)> {
+    let mut st = dyndns::Status { kind: String::new(), detail: String::new() };
+    let mut time = String::new();
+    for (k, v) in text.lines().filter_map(|l| l.split_once('=')) {
+        match k {
+            "kind" => st.kind = v.into(),
+            "detail" => st.detail = v.into(),
+            "time" => time = v.into(),
+            _ => {}
+        }
+    }
+    (!st.kind.is_empty()).then_some((st, time))
 }
 
 const MAX_LOG: u64 = 1024 * 1024;
@@ -168,6 +208,13 @@ fn drop_if_over(path: &Path, max: u64) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn status_roundtrip() {
+        let (st, time) = parse_status("kind=server\ndetail=numhost x=y\ntime=14:32\n").unwrap();
+        assert_eq!((st.kind.as_str(), st.detail.as_str(), time.as_str()), ("server", "numhost x=y", "14:32"));
+        assert!(parse_status("").is_none(), "empty file means no status yet");
+    }
 
     #[test]
     fn log_dropped_over_limit() {

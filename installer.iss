@@ -34,20 +34,47 @@ Source: "{#AppExe}"; DestDir: "{app}"; Flags: ignoreversion
 Name: "{autoprograms}\DynDNS Updater"; Filename: "{app}\dyndns.exe"
 
 [Run]
-; Restart the service after an upgrade. Fails quietly when the service is not installed.
-Filename: "{sys}\sc.exe"; Parameters: "start DynDNSUpdater"; Flags: runhidden
 Filename: "{app}\dyndns.exe"; Description: "{cm:LaunchProgram,DynDNS Updater}"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
 Filename: "{app}\dyndns.exe"; Parameters: "--uninstall-service"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveService"
 
 [Code]
-// The service keeps dyndns.exe locked, so stop it before files are replaced on an upgrade.
-function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  ServiceStopped: Boolean;
+
+function ServiceIsStopped(): Boolean;
 var
   Code: Integer;
 begin
+  // find exits with 0 when the text is there.
+  Result := Exec(ExpandConstant('{cmd}'), '/C sc query DynDNSUpdater | find "STOPPED"', '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0);
+end;
+
+// The service keeps dyndns.exe locked, so stop it before files are replaced on an upgrade.
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  Code, I: Integer;
+begin
   if Exec(ExpandConstant('{sys}\sc.exe'), 'stop DynDNSUpdater', '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0) then
-    Sleep(2000);
+  begin
+    ServiceStopped := True;
+    // A sync in progress can take up to 40 s before the service sees the stop.
+    for I := 1 to 60 do
+    begin
+      if ServiceIsStopped() then Break;
+      Sleep(1000);
+    end;
+  end;
   Result := '';
+end;
+
+// Runs at the very end, also when setup fails or is cancelled, so a service we stopped
+// never stays stopped.
+procedure DeinitializeSetup();
+var
+  Code: Integer;
+begin
+  if ServiceStopped then
+    Exec(ExpandConstant('{sys}\sc.exe'), 'start DynDNSUpdater', '', SW_HIDE, ewWaitUntilTerminated, Code);
 end;

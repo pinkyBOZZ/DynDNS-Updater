@@ -104,6 +104,7 @@ export component AppWindow inherits Window {
         if kind == "notfqdn" { return @tr("Hostname is not a valid domain name"); }
         if kind == "abuse" { return @tr("Hostname is blocked for abuse"); }
         if kind == "server" { return @tr("Server reply: {}", d); }
+        if kind == "service-working" { return @tr("Changing the Windows service..."); }
         if kind == "service-on" { return @tr("Updates now run in the Windows service"); }
         if kind == "service-off" { return @tr("Windows service removed"); }
         if kind == "service-failed" { return @tr("Service change failed or was cancelled"); }

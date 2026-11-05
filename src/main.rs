@@ -144,6 +144,20 @@ fn gui() -> Result<(), Box<dyn std::error::Error>> {
     auto();
     timer.start(slint::TimerMode::Repeated, INTERVAL, auto);
 
+    // While the service does the updates, show what it last reported.
+    let service_timer = slint::Timer::default();
+    let show_service = {
+        let weak = ui.as_weak();
+        move || {
+            let ui = weak.unwrap();
+            if ui.get_service_installed() && !ui.get_busy() {
+                show_service_status(&ui);
+            }
+        }
+    };
+    show_service();
+    service_timer.start(slint::TimerMode::Repeated, Duration::from_secs(30), show_service);
+
     setup_tray(&ui)?;
     // Closing the window hides it to the tray; "Exit" in the tray menu quits.
     ui.window().on_close_requested(|| slint::CloseRequestResponse::HideWindow);
@@ -192,6 +206,16 @@ fn start_sync(ui: &AppWindow, force: bool) {
             set_status(&ui, &st.kind, &st.detail);
         });
     });
+}
+
+fn show_service_status(ui: &AppWindow) {
+    let Some((st, time)) = service::read_status() else { return };
+    ui.set_halted(st.is_fatal());
+    if dyndns::accepted(&st) {
+        ui.set_ip(st.detail.as_str().into());
+        ui.set_checked_at(time.into());
+    }
+    set_status(ui, &st.kind, &st.detail);
 }
 
 fn setup_tray(ui: &AppWindow) -> Result<(), Box<dyn std::error::Error>> {
@@ -254,7 +278,7 @@ fn refresh_tray(ui: &AppWindow) {
 /// service install run; the controls are locked until `done` gets the result.
 fn elevate_in_background(ui: &AppWindow, arg: &'static str, done: impl FnOnce(&AppWindow, bool) + Send + 'static) {
     ui.set_busy(true);
-    set_status(ui, "checking", "");
+    set_status(ui, "service-working", "");
     let weak = ui.as_weak();
     std::thread::spawn(move || {
         let ok = run_elevated(arg);
