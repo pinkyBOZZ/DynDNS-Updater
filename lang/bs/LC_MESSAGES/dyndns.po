@@ -85,6 +85,10 @@ msgid "Service change failed or was cancelled"
 msgstr "Promjena servisa nije uspjela ili je otkazana"
 
 msgctxt "AppWindow"
+msgid "No internet connection. Trying again in a minute."
+msgstr "Nema internet konekcije. Pokušavam ponovo za minut."
+
+msgctxt "AppWindow"
 msgid "Error: {}"
 msgstr "Greška: {}"
 

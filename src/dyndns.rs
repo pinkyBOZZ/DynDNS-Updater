@@ -19,7 +19,7 @@ impl Status {
 
     /// DynDNS forbids retrying after these until the user fixes the settings.
     pub fn is_fatal(&self) -> bool {
-        !matches!(self.kind.as_str(), "good" | "nochg" | "same" | "error")
+        !matches!(self.kind.as_str(), "good" | "nochg" | "same" | "error" | "offline")
     }
 }
 
@@ -36,9 +36,13 @@ fn agent() -> ureq::Agent {
 /// `force` always sends (the "Update now" button).
 pub fn sync(s: &Settings, force: bool, last_ip: &str) -> Status {
     let agent = agent();
-    let ip = match public_ip(&agent) {
-        Ok(ip) => ip,
-        Err(e) => return Status::new("error", &e),
+    // Nothing reached DynDNS yet, so a quick retry is safe (typical right after boot).
+    let body = match agent.get("https://checkip.dyndns.com/").call().and_then(|mut r| r.body_mut().read_to_string()) {
+        Ok(body) => body,
+        Err(e) => return Status::new("offline", &e.to_string()),
+    };
+    let Some(ip) = parse_checkip(&body) else {
+        return Status::new("error", &format!("unexpected checkip reply: {body}"));
     };
     if !should_send(force, &ip, last_ip, || resolves_to(&s.hostname, &ip)) {
         return Status::new("same", &ip);
@@ -55,18 +59,14 @@ fn should_send(force: bool, ip: &str, last_ip: &str, dns_matches: impl FnOnce() 
     force || (ip != last_ip && !dns_matches())
 }
 
+/// How long to wait before the next check: a minute when offline, else the normal interval.
+pub fn wait_after(st: &Status) -> Duration {
+    if st.kind == "offline" { Duration::from_secs(60) } else { crate::INTERVAL }
+}
+
 /// Does this status mean DynDNS now has `detail` as the IP?
 pub fn accepted(st: &Status) -> bool {
     matches!(st.kind.as_str(), "good" | "nochg" | "same")
-}
-
-fn public_ip(agent: &ureq::Agent) -> Result<String, String> {
-    let body = agent
-        .get("https://checkip.dyndns.com/")
-        .call()
-        .and_then(|mut r| r.body_mut().read_to_string())
-        .map_err(|e| e.to_string())?;
-    parse_checkip(&body).ok_or_else(|| format!("unexpected checkip reply: {body}"))
 }
 
 fn resolves_to(host: &str, ip: &str) -> bool {
@@ -148,6 +148,14 @@ mod tests {
         let s = parse_response("numhost");
         assert_eq!(s.kind, "server");
         assert!(s.is_fatal());
+    }
+
+    #[test]
+    fn offline_retries_fast() {
+        let offline = Status::new("offline", "No such host is known");
+        assert!(!offline.is_fatal());
+        assert_eq!(wait_after(&offline), Duration::from_secs(60));
+        assert_eq!(wait_after(&parse_response("911")), crate::INTERVAL, "DynDNS outages wait the full interval");
     }
 
     #[test]

@@ -108,6 +108,7 @@ export component AppWindow inherits Window {
         if kind == "service-on" { return @tr("Updates now run in the Windows service"); }
         if kind == "service-off" { return @tr("Windows service removed"); }
         if kind == "service-failed" { return @tr("Service change failed or was cancelled"); }
+        if kind == "offline" { return @tr("No internet connection. Trying again in a minute."); }
         if kind == "error" { return @tr("Error: {}", d); }
         return "";
     }

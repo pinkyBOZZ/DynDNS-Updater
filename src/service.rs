@@ -125,6 +125,7 @@ fn run_service() -> Result<(), windows_service::Error> {
     let mut halted = false;
     let mut last_ip = String::new();
     loop {
+        let mut wait = INTERVAL;
         if !halted {
             match store::load_service() {
                 Ok(s) => {
@@ -136,6 +137,7 @@ fn run_service() -> Result<(), windows_service::Error> {
                     }
                     // Fatal replies stop updates until settings are saved again (service reinstalled).
                     halted = st.is_fatal();
+                    wait = dyndns::wait_after(&st);
                 }
                 Err(e) => {
                     log(&e);
@@ -143,7 +145,7 @@ fn run_service() -> Result<(), windows_service::Error> {
                 }
             }
         }
-        match stop_rx.recv_timeout(INTERVAL) {
+        match stop_rx.recv_timeout(wait) {
             Err(mpsc::RecvTimeoutError::Timeout) => {}
             _ => break,
         }

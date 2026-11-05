@@ -134,12 +134,7 @@ fn gui() -> Result<(), Box<dyn std::error::Error>> {
     let timer = slint::Timer::default();
     let auto = {
         let weak = ui.as_weak();
-        move || {
-            let ui = weak.unwrap();
-            if !ui.get_service_installed() && !ui.get_halted() && !ui.get_busy() && settings(&ui).is_complete() {
-                start_sync(&ui, false);
-            }
-        }
+        move || auto_sync(&weak.unwrap())
     };
     auto();
     timer.start(slint::TimerMode::Repeated, INTERVAL, auto);
@@ -185,6 +180,12 @@ fn set_status(ui: &AppWindow, kind: &str, detail: &str) {
     refresh_tray(ui);
 }
 
+fn auto_sync(ui: &AppWindow) {
+    if !ui.get_service_installed() && !ui.get_halted() && !ui.get_busy() && settings(ui).is_complete() {
+        start_sync(ui, false);
+    }
+}
+
 fn start_sync(ui: &AppWindow, force: bool) {
     let s = settings(ui);
     if !s.is_complete() {
@@ -202,6 +203,14 @@ fn start_sync(ui: &AppWindow, force: bool) {
             if dyndns::accepted(&st) {
                 ui.set_ip(st.detail.as_str().into());
                 ui.set_checked_at(now_hhmm().into());
+            }
+            if st.kind == "offline" {
+                let weak = ui.as_weak();
+                slint::Timer::single_shot(dyndns::wait_after(&st), move || {
+                    if let Some(ui) = weak.upgrade() {
+                        auto_sync(&ui);
+                    }
+                });
             }
             set_status(&ui, &st.kind, &st.detail);
         });

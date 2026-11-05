@@ -16,7 +16,7 @@ The interface is available in English and Bosnian.
 
 Every 10 minutes the app asks `checkip.dyndns.com` for your public IP and resolves your hostname. If DNS already points at that IP, nothing is sent. If it doesn't, the app calls the DynDNS update API (`members.dyndns.org/v3/update`) with your account. It also remembers the last IP DynDNS accepted, so a DNS server that hands out stale answers doesn't cause the same update every 10 minutes.
 
-DynDNS blocks accounts that send pointless or repeated failing updates, so the app stops on replies like `badauth`, `nohost`, `notfqdn` or `abuse` and waits until you fix the settings and click Save. After a network error, or a `911` or `dnserr` reply that means trouble on DynDNS's side, it tries again at the next check.
+DynDNS blocks accounts that send pointless or repeated failing updates, so the app stops on replies like `badauth`, `nohost`, `notfqdn` or `abuse` and waits until you fix the settings and click Save. Without an internet connection, for example right after boot, it tries again after a minute. After a `911` or `dnserr` reply, which means trouble on DynDNS's side, it waits for the next regular check.
 
 The window shows the hostname, the current IP, whether DNS is in sync and when it last checked. Closing the window hides it to the tray. The tray menu has Show, Update now and Exit.
 
