@@ -49,8 +49,13 @@ pub fn install() -> Result<(), String> {
     service.start::<&str>(&[]).map_err(|e| e.to_string())
 }
 
-/// Needs admin. Stops and removes the service and its settings.
+/// Needs admin. Stops and removes the service and its settings. No service is not an error
+/// (the installer's uninstaller always calls this).
 pub fn uninstall() -> Result<(), String> {
+    if !is_installed() {
+        store::delete_service();
+        return Ok(());
+    }
     let manager = ServiceManager::local_computer(None::<&str>, ServiceManagerAccess::CONNECT).map_err(|e| e.to_string())?;
     let result = manager
         .open_service(NAME, ServiceAccess::STOP | ServiceAccess::QUERY_STATUS | ServiceAccess::DELETE)

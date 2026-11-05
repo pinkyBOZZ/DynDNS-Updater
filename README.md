@@ -22,6 +22,12 @@ The window shows the hostname, the current IP, whether DNS is in sync and when i
 
 Only DynDNS is supported for now. The provider field is there so others can be added later.
 
+## Install
+
+Download `DynDNS-Updater-<version>-setup.exe` from the [Releases page](https://github.com/pinkyBOZZ/DynDNS-Updater/releases) and run it. It installs to `C:\Program Files\DynDNS Updater\` and adds a Start menu shortcut. Uninstall it from Windows Settings like any other app; that also removes the Windows service if you turned it on. Your settings in `%APPDATA%\DynDNS` stay, so a reinstall or upgrade keeps them.
+
+The installer is not code signed yet, so Windows SmartScreen will warn about an unknown publisher. Click "More info", then "Run anyway".
+
 ## Requirements
 
 - Windows 10 or 11
@@ -46,11 +52,21 @@ Run the tests with:
 cargo test
 ```
 
+To build the installer, install [Inno Setup](https://jrsoftware.org/isinfo.php), build the release exe, then compile `installer.iss`. The installer takes its version from the exe, so `Cargo.toml` is the only place to change it. The result lands in `dist\`.
+
+```bash
+winget install JRSoftware.InnoSetup
+```
+
+```bash
+"%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe" installer.iss
+```
+
 ## Windows service
 
 Tick "Run as Windows service" in the window. Windows asks for admin rights, then the app installs and starts a service called `DynDNSUpdater` that runs as LocalSystem and starts with Windows. While the service is on, the window stops sending updates itself so the two don't overlap. Unticking the box stops and removes the service.
 
-The service runs the executable from wherever it was when you installed it. Put `dyndns.exe` somewhere permanent first (for example `C:\Program Files\DynDNS\`), because deleting or rebuilding that file breaks the service.
+The service runs the executable from wherever it was when you turned it on. With the installer that is `C:\Program Files\DynDNS Updater\`, and upgrades stop and restart the service for you. If you run a build from `target\` instead, deleting or rebuilding that file breaks the service.
 
 The same actions are available from the command line, from an elevated prompt:
 
@@ -85,6 +101,7 @@ ui/app.slint       the window (Slint)
 lang/bs/...        Bosnian translation (.po)
 assets/            icon as SVG, PNG and ICO
 build.rs           compiles the UI and embeds the icon
+installer.iss      Inno Setup installer script
 ```
 
 ## Translations
