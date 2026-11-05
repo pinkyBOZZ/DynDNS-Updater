@@ -42,6 +42,7 @@ fn gui() -> Result<(), Box<dyn std::error::Error>> {
     ui.set_hostname(s.hostname.into());
     ui.set_language(s.language);
     ui.set_service_installed(service::is_installed());
+    ui.set_version(env!("CARGO_PKG_VERSION").into());
     set_language(s.language);
 
     ui.on_language_changed({

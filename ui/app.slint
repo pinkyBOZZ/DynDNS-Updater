@@ -85,6 +85,7 @@ export component AppWindow inherits Window {
     in property <string> status-detail;
     in property <string> ip;
     in property <string> checked-at;
+    in property <string> version;
 
     callback save();
     callback update-now();
@@ -208,16 +209,24 @@ export component AppWindow inherits Window {
 
             HorizontalLayout {
                 spacing: 8px;
-                alignment: start;
                 PrimaryButton {
+                    horizontal-stretch: 0;
                     text: @tr("Save");
                     enabled: !root.busy;
                     clicked => { root.save(); }
                 }
                 Button {
+                    horizontal-stretch: 0;
                     text: @tr("Update now");
                     enabled: !root.busy && !root.service-installed;
                     clicked => { root.update-now(); }
+                }
+                Rectangle { horizontal-stretch: 1; }
+                Text {
+                    text: "v" + root.version;
+                    color: Theme.muted;
+                    font-size: 12px;
+                    vertical-alignment: center;
                 }
             }
         }

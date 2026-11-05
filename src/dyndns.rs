@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use crate::store::Settings;
 
-const USER_AGENT: &str = "Personal - DynDNS Updater - 0.1.0";
+const USER_AGENT: &str = concat!("Personal - DynDNS Updater - ", env!("CARGO_PKG_VERSION"));
 
 /// Result of one sync, shown in the UI. `kind` is a key the UI translates.
 pub struct Status {
