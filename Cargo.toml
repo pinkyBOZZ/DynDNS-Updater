@@ -1,6 +1,6 @@
 [package]
 name = "dyndns"
-version = "0.0.2"
+version = "0.0.3"
 edition = "2021"
 license = "MIT"
 
@@ -11,6 +11,7 @@ tray-icon = "0.26"
 windows-service = "0.8"
 windows-sys = { version = "0.61", features = [
     "Win32_Foundation",
+    "Win32_Security",
     "Win32_Security_Cryptography",
     "Win32_System_Registry",
     "Win32_System_SystemInformation",

@@ -31,15 +31,16 @@ fn agent() -> ureq::Agent {
         .into()
 }
 
-/// Checks the public IP and sends an update when DNS does not match it yet.
-/// `force` skips the DNS check (the "Update now" button).
-pub fn sync(s: &Settings, force: bool) -> Status {
+/// Checks the public IP and sends an update only when it is new.
+/// `last_ip` is the last IP DynDNS accepted for these settings ("" if none yet).
+/// `force` always sends (the "Update now" button).
+pub fn sync(s: &Settings, force: bool, last_ip: &str) -> Status {
     let agent = agent();
     let ip = match public_ip(&agent) {
         Ok(ip) => ip,
         Err(e) => return Status::new("error", &e),
     };
-    if !force && resolves_to(&s.hostname, &ip) {
+    if !should_send(force, &ip, last_ip, || resolves_to(&s.hostname, &ip)) {
         return Status::new("same", &ip);
     }
     match update(&agent, s, &ip) {
@@ -48,9 +49,20 @@ pub fn sync(s: &Settings, force: bool) -> Status {
     }
 }
 
+/// Some ISP resolvers keep old answers past the TTL, so DNS alone would resend the same IP
+/// every check, and DynDNS treats repeated `nochg` as abuse.
+fn should_send(force: bool, ip: &str, last_ip: &str, dns_matches: impl FnOnce() -> bool) -> bool {
+    force || (ip != last_ip && !dns_matches())
+}
+
+/// Does this status mean DynDNS now has `detail` as the IP?
+pub fn accepted(st: &Status) -> bool {
+    matches!(st.kind.as_str(), "good" | "nochg" | "same")
+}
+
 fn public_ip(agent: &ureq::Agent) -> Result<String, String> {
     let body = agent
-        .get("http://checkip.dyndns.com/")
+        .get("https://checkip.dyndns.com/")
         .call()
         .and_then(|mut r| r.body_mut().read_to_string())
         .map_err(|e| e.to_string())?;
@@ -89,6 +101,8 @@ fn parse_response(body: &str) -> Status {
     let (code, rest) = line.split_once(' ').unwrap_or((line, ""));
     match code {
         "good" | "nochg" | "badauth" | "nohost" | "notfqdn" | "abuse" => Status::new(code, rest),
+        // Outage or DNS trouble on DynDNS's side: retry later instead of stopping for good.
+        "911" | "dnserr" => Status::new("error", line),
         "" => Status::new("error", "empty reply"),
         _ => Status::new("server", line),
     }
@@ -129,9 +143,20 @@ mod tests {
         assert!(!s.is_fatal());
         assert_eq!(parse_response("nochg 1.2.3.4").kind, "nochg");
         assert!(parse_response("badauth").is_fatal());
-        let s = parse_response("911");
+        assert!(!parse_response("911").is_fatal(), "outage must be retried");
+        assert!(!parse_response("dnserr").is_fatal(), "dns error must be retried");
+        let s = parse_response("numhost");
         assert_eq!(s.kind, "server");
         assert!(s.is_fatal());
+    }
+
+    #[test]
+    fn send_decision() {
+        assert!(should_send(true, "1.1.1.1", "1.1.1.1", || true), "force always sends");
+        assert!(!should_send(false, "1.1.1.1", "1.1.1.1", || false), "stale DNS, IP already accepted");
+        assert!(!should_send(false, "2.2.2.2", "1.1.1.1", || true), "DNS already right");
+        assert!(should_send(false, "2.2.2.2", "1.1.1.1", || false), "new IP");
+        assert!(should_send(false, "2.2.2.2", "", || false), "first run");
     }
 
     #[test]

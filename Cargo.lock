@@ -1120,7 +1120,7 @@ checksum = "edf234dd1594d6dd434a8fb8cada51ddbbc593e40e4a01556a0b31c62da2775b"
 
 [[package]]
 name = "dyndns"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "slint",
  "slint-build",

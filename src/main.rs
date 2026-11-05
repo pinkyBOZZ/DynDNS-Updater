@@ -27,10 +27,31 @@ fn main() {
         Some("--install-service") => exit_with(service::install()),
         Some("--uninstall-service") => exit_with(service::uninstall()),
         _ => {
+            if already_running() {
+                let bs = store::load_user().language == 1;
+                return message_box(if bs {
+                    "DynDNS Updater već radi. Otvori ga preko ikone u tray-u."
+                } else {
+                    "DynDNS Updater is already running. Open it from the tray icon."
+                });
+            }
             if let Err(e) = gui() {
                 message_box(&e.to_string());
             }
         }
+    }
+}
+
+/// Two windows would each send updates, and DynDNS counts repeats as abuse.
+fn already_running() -> bool {
+    use windows_sys::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS};
+    use windows_sys::Win32::System::Threading::CreateMutexW;
+    let name = wide("Local\\DynDNSUpdater");
+    // SAFETY: name is NUL-terminated. The handle is never closed on purpose: it must live as
+    // long as this process, and Windows releases it on exit.
+    unsafe {
+        CreateMutexW(std::ptr::null(), 0, name.as_ptr());
+        GetLastError() == ERROR_ALREADY_EXISTS
     }
 }
 
@@ -49,9 +70,11 @@ fn gui() -> Result<(), Box<dyn std::error::Error>> {
         let weak = ui.as_weak();
         move |lang| {
             set_language(lang);
-            let ui = weak.unwrap();
-            let _ = store::save_user(&settings(&ui)); // remember the choice
-            refresh_tray(&ui);
+            // Remember only the language; unsaved edits in the fields wait for Save.
+            let mut saved = store::load_user();
+            saved.language = lang;
+            let _ = store::save_user(&saved);
+            refresh_tray(&weak.unwrap());
         }
     });
 
@@ -63,6 +86,7 @@ fn gui() -> Result<(), Box<dyn std::error::Error>> {
                 return set_status(&ui, "error", &e);
             }
             ui.set_halted(false);
+            ui.set_ip("".into()); // new settings: the next check must not trust the old IP
             set_status(&ui, "saved", "");
             // The service keeps its own copy of the settings; refresh it.
             if ui.get_service_installed() {
@@ -154,13 +178,14 @@ fn start_sync(ui: &AppWindow, force: bool) {
     }
     ui.set_busy(true);
     set_status(ui, "checking", "");
+    let last_ip = ui.get_ip().to_string();
     let weak = ui.as_weak();
     std::thread::spawn(move || {
-        let st = dyndns::sync(&s, force);
+        let st = dyndns::sync(&s, force, &last_ip);
         let _ = weak.upgrade_in_event_loop(move |ui| {
             ui.set_busy(false);
             ui.set_halted(st.is_fatal());
-            if matches!(st.kind.as_str(), "good" | "nochg" | "same") {
+            if dyndns::accepted(&st) {
                 ui.set_ip(st.detail.as_str().into());
                 ui.set_checked_at(now_hhmm().into());
             }

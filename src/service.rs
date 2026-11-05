@@ -30,8 +30,6 @@ pub fn install() -> Result<(), String> {
     if !s.is_complete() {
         return Err("Settings are incomplete".into());
     }
-    let _ = uninstall();
-    store::save_service(&s)?;
     let manager = ServiceManager::local_computer(None::<&str>, ServiceManagerAccess::CONNECT | ServiceManagerAccess::CREATE_SERVICE)
         .map_err(|e| e.to_string())?;
     let info = ServiceInfo {
@@ -46,8 +44,30 @@ pub fn install() -> Result<(), String> {
         account_name: None, // LocalSystem
         account_password: None,
     };
-    let service = manager.create_service(&info, ServiceAccess::START).map_err(|e| e.to_string())?;
+    let access = ServiceAccess::START | ServiceAccess::STOP | ServiceAccess::QUERY_STATUS | ServiceAccess::CHANGE_CONFIG;
+    // Already installed: update it in place. Deleting and recreating fails while anything
+    // (a slow sync, the Services window) still holds it, and leaves no service behind.
+    let service = match manager.open_service(NAME, access) {
+        Ok(svc) => {
+            stop_and_wait(&svc);
+            svc.change_config(&info).map_err(|e| e.to_string())?; // exe may have moved
+            svc
+        }
+        Err(_) => manager.create_service(&info, access).map_err(|e| e.to_string())?,
+    };
+    store::save_service(&s)?;
     service.start::<&str>(&[]).map_err(|e| e.to_string())
+}
+
+/// A sync can block for up to two 20 s HTTP timeouts before the service sees the stop.
+fn stop_and_wait(svc: &windows_service::service::Service) {
+    let _ = svc.stop();
+    for _ in 0..240 {
+        match svc.query_status() {
+            Ok(st) if st.current_state != ServiceState::Stopped => std::thread::sleep(Duration::from_millis(250)),
+            _ => break,
+        }
+    }
 }
 
 /// Needs admin. Stops and removes the service and its settings. No service is not an error
@@ -61,13 +81,7 @@ pub fn uninstall() -> Result<(), String> {
     let result = manager
         .open_service(NAME, ServiceAccess::STOP | ServiceAccess::QUERY_STATUS | ServiceAccess::DELETE)
         .and_then(|svc| {
-            let _ = svc.stop();
-            for _ in 0..20 {
-                match svc.query_status() {
-                    Ok(st) if st.current_state != ServiceState::Stopped => std::thread::sleep(Duration::from_millis(250)),
-                    _ => break,
-                }
-            }
+            stop_and_wait(&svc);
             svc.delete()
         })
         .map_err(|e| e.to_string());
@@ -109,12 +123,16 @@ fn run_service() -> Result<(), windows_service::Error> {
     handle.set_service_status(status(ServiceState::Running, ServiceControlAccept::STOP))?;
 
     let mut halted = false;
+    let mut last_ip = String::new();
     loop {
         if !halted {
             match store::load_service() {
                 Ok(s) => {
-                    let st = dyndns::sync(&s, false);
+                    let st = dyndns::sync(&s, false, &last_ip);
                     log(&format!("{} {}", st.kind, st.detail));
+                    if dyndns::accepted(&st) {
+                        last_ip = st.detail.clone();
+                    }
                     // Fatal replies stop updates until settings are saved again (service reinstalled).
                     halted = st.is_fatal();
                 }
