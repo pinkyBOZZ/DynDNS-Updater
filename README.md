@@ -98,3 +98,11 @@ UI text is marked with `@tr(...)` in `ui/app.slint` and translated in `lang/bs/L
 ## Built with
 
 [Slint](https://slint.dev) for the UI, [ureq](https://github.com/algesten/ureq) for HTTP, [tray-icon](https://github.com/tauri-apps/tray-icon) for the tray, [windows-service](https://github.com/mullvad/windows-service-rs) and [windows-sys](https://github.com/microsoft/windows-rs) for the Windows parts.
+
+[![Made with Slint](https://raw.githubusercontent.com/slint-ui/slint/master/logo/MadeWithSlint-logo-whitebg.png)](https://slint.dev)
+
+## License
+
+The code in this repository is released under the [MIT License](LICENSE).
+
+Slint is not MIT licensed. This app uses it under the [Slint Royalty-free Desktop, Mobile, and Web Applications License 2.0](https://github.com/slint-ui/slint/blob/master/LICENSES/LicenseRef-Slint-Royalty-free-2.0.md), which asks for the "Made with Slint" badge above. If you fork this project and publish your own build, keep a badge like that on your download page, or use Slint under one of its other licenses.
